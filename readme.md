@@ -36,3 +36,13 @@ assert np.allclose(x_prime, x)
 out.qqplot(x)  # Plot qq plots for each variable, before and after. 
 
 ```
+
+## Command line interface
+
+Preprocess a data file by Gaussianizing each column. The -q option optionally generates qq plots. Default delimiter is 
+comma. The default assumption is that the first row and column are labels. This can be altered with options. 
+
+```
+python gaussianize.py file.csv --delimiter=',' -o output.csv -q
+python gaussianize.py -h  # For a list of all options
+```

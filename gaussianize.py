@@ -158,3 +158,90 @@ def delta_init(z):
     if not np.isfinite(delta0):
         delta0 = 0.01
     return delta0
+
+
+if __name__ == '__main__':
+    # Command line interface
+    # Sample commands:
+    # python gaussianize.py test_data.csv
+    import csv
+    import sys, os
+    import traceback
+    from optparse import OptionParser, OptionGroup
+
+    parser = OptionParser(usage="usage: %prog [options] data_file.csv \n"
+                                "It is assumed that the first row and first column of the data CSV file are labels.\n"
+                                "Use options to indicate otherwise.")
+    group = OptionGroup(parser, "Input Data Format Options")
+    group.add_option("-c", "--no_column_names",
+                     action="store_true", dest="nc", default=False,
+                     help="We assume the top row is variable names for each column. "
+                          "This flag says that data starts on the first row and gives a "
+                          "default numbering scheme to the variables (1,2,3...).")
+    group.add_option("-r", "--no_row_names",
+                     action="store_true", dest="nr", default=False,
+                     help="We assume the first column is a label or index for each sample. "
+                          "This flag says that data starts on the first column.")
+    group.add_option("-d", "--delimiter",
+                     action="store", dest="delimiter", type="string", default=",",
+                     help="Separator between entries in the data, default is ','.")
+    parser.add_option_group(group)
+
+    group = OptionGroup(parser, "Output Options")
+    group.add_option("-o", "--output",
+                     action="store", dest="output", type="string", default="gaussian_output.csv",
+                     help="Where to store gaussianized data.")
+    group.add_option("-q", "--qqplots",
+                     action="store_true", dest="q", default=False,
+                     help="Produce qq plots for each variable before and after transform.")
+    parser.add_option_group(group)
+
+    (options, args) = parser.parse_args()
+    if not len(args) == 1:
+        print "Run with '-h' option for usage help."
+        sys.exit()
+
+    #Load data from csv file
+    filename = args[0]
+    with open(filename, 'rU') as csvfile:
+        reader = csv.reader(csvfile, delimiter=options.delimiter)
+        if options.nc:
+            variable_names = None
+        else:
+            variable_names = reader.next()[(1 - options.nr):]
+        sample_names = []
+        data = []
+        for row in reader:
+            if options.nr:
+                sample_names = None
+            else:
+                sample_names.append(row[0])
+            data.append(row[(1 - options.nr):])
+
+    try:
+        X = -np.array(data, dtype=float)  # Data matrix in numpy format
+    except:
+        print "Incorrect data format.\nCheck that you've correctly specified options " \
+              "such as continuous or not, \nand if there is a header row or column.\n" \
+              "Run 'python gaussianize.py -h' option for help with options."
+        traceback.print_exc(file=sys.stdout)
+        sys.exit()
+
+    out = Lambert()
+    y = out.fit_transform(X)
+    with open(options.output, 'w') as csvfile:
+        writer = csv.writer(csvfile, delimiter=options.delimiter)
+        if not options.nc:
+            writer.writerow([""] * (1 - options.nr) + variable_names)
+        for i, row in enumerate(y):
+            if not options.nr:
+                writer.writerow([sample_names[i]] + list(row))
+            else:
+                writer.writerow(row)
+
+    if options.q:
+        print 'Making qq plots'
+        prefix = options.output.split('.')[0]
+        if not os.path.exists(prefix+'_q'):
+            os.makedirs(prefix+'_q')
+        out.qqplot(X, prefix=prefix + '_q/q')
