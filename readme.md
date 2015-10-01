@@ -14,11 +14,11 @@ and poorly tested.
 
 Here's an example of a QQ plot comparing data generated from a Cauchy distribution to a normal distribution. 
 
-![Cauchy before](https://github.com/gregversteeg/gaussianize/tests/cauchy_before.png "Cauchy before")
+![Cauchy before](https://github.com/gregversteeg/gaussianize/blob/master/tests/cauchy_before.png?raw=true "Cauchy before")
 
 After applying the transformation, this plot looks like this. 
 
-![Cauchy after](https://github.com/gregversteeg/gaussianize/tests/cauchy_after.png "Cauchy after")
+![Cauchy after](https://github.com/gregversteeg/gaussianize/blob/master/tests/cauchy_after.png?raw=true "Cauchy after")
 
 ## Example usage
 
