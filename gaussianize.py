@@ -219,7 +219,7 @@ if __name__ == '__main__':
             data.append(row[(1 - options.nr):])
 
     try:
-        X = -np.array(data, dtype=float)  # Data matrix in numpy format
+        X = np.array(data, dtype=float)  # Data matrix in numpy format
     except:
         print "Incorrect data format.\nCheck that you've correctly specified options " \
               "such as continuous or not, \nand if there is a header row or column.\n" \
