@@ -30,7 +30,8 @@ This approach is described in Sec. C of the following paper.
 The contribution here is to make a (basic) python version that works in the sklearn style. This is very preliminary 
 and poorly tested. 
 
-Here's an example of a QQ plot comparing data generated from a Cauchy distribution to a normal distribution. 
+Here's an example of a [QQ plot](https://en.wikipedia.org/wiki/Q–Q_plot) comparing data generated 
+from a Cauchy distribution to a normal distribution. 
 
 ![Cauchy before](https://github.com/gregversteeg/gaussianize/blob/master/tests/cauchy_before.png?raw=true "Cauchy before")
 
