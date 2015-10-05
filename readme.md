@@ -6,7 +6,7 @@ The idea is to apply a smooth, invertible transformation to some univariate data
  this be useful?
  
  1. A standard pre-processing step is to "whiten" data by subtracting the mean and scaling it to have standard deviation 1. 
- Gaussianized data has these properties and 
+ Gaussianized data has these properties and more.
  2. Robust statistics / reduce effect of outliers. Lots of real world data exhibits long tails. For machine learning, the small
  number of examples in the tails of the distribution can have a large effect on results. 
  Gaussianized data will "squeeze" the tails in towards the center. 
@@ -43,7 +43,7 @@ This is an old and well known way to [gaussianize data](https://en.wikipedia.org
 Some of the limitations of this approach are discussed in Georg's paper, above.  E.g., it only applies to positive data
 and gaussianizes data with a heavy right-hand tail. 
 
-This transformation is not yet implemented.
+This transformation is not yet tested.
 
 ## Brute force 
 
