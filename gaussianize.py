@@ -8,11 +8,12 @@ import numpy as np
 from scipy.special import lambertw
 from scipy.stats import kurtosis, norm, rankdata, boxcox
 from scipy.optimize import fmin  # TODO: Explore efficacy of other opt. methods
+import sklearn
 
 np.seterr(all='warn')
 
 
-class Gaussianize(object):
+class Gaussianize(sklearn.base.TransformerMixin):
     """
     Gaussianize data using various methods.
 
@@ -26,7 +27,7 @@ class Gaussianize(object):
     ----------
     tol : float, default = 1e-4
 
-    max_iter : int, default = 200
+    max_iter : int, default = 100
         Maximum number of iterations to search for correct parameters of Lambert transform.
 
     strategy : str, default='lambert'
@@ -34,7 +35,7 @@ class Gaussianize(object):
 
     Attributes
     ----------
-    taus : list of tuples
+    coefs_ : list of tuples
         For each variable, we have transformation parameters.
         For Lambert, e.g., a tuple consisting of (mu, sigma, delta), corresponding to the parameters of the
         appropriate Lambert transform. Eq. 6 and 8 in the paper below.
@@ -48,13 +49,15 @@ class Gaussianize(object):
     [3] Box cox transformation and references: https://en.wikipedia.org/wiki/Power_transform
     """
 
-    def __init__(self, tol=1.22e-4, max_iter=100, strategy='lambert'):
+    def __init__(self, tol=1.22e-4, max_iter=100, verbose=False, strategy='lambert'):
         self.tol = tol
         self.max_iter = max_iter
         self.strategy = strategy
-        self.taus = []  # Store tau for each transformed variable
+        self.coefs_ = []  # Store tau for each transformed variable
+        self.verbose = verbose
 
-    def fit(self, x):
+    def fit(self, x, y=None):
+        """Fit a Gaussianizing transformation to each variable/column in x."""
         x = np.asarray(x)
         if len(x.shape) == 1:
             x = x[:, np.newaxis]
@@ -62,52 +65,52 @@ class Gaussianize(object):
             print "Data should be a 1-d list of samples to transform or a 2d array with samples as rows."
 
         if self.strategy == 'lambert':
+            if self.verbose:
+                print("Gaussianizing with Lambert method")
             for x_i in x.T:
-                self.taus.append(igmm(x_i, tol=self.tol, max_iter=self.max_iter))
+                self.coefs_.append(igmm(x_i, tol=self.tol, max_iter=self.max_iter))
         elif self.strategy == 'brute':
             for x_i in x.T:
-                self.taus.append(None)  # TODO: In principle, we could store parameters to do a quasi-invert
+                self.coefs_.append(None)  # TODO: In principle, we could store parameters to do a quasi-invert
         elif self.strategy == 'boxcox':
             for x_i in x.T:
-                self.taus.append(boxcox(x_i)[1])
+                self.coefs_.append(boxcox(x_i)[1])
         else:
             raise NotImplementedError
-
+        return self
 
     def transform(self, x):
+        """Transform new data using a previously learned Gaussianization model."""
         x = np.asarray(x)
         if len(x.shape) == 1:
             x = x[:, np.newaxis]
         elif len(x.shape) != 2:
             print "Data should be a 1-d list of samples to transform or a 2d array with samples as rows."
-        if x.shape[1] != len(self.taus):
-            print "%d variables in test data, but %d variables were in training data." % (x.shape[1], len(self.taus))
+        if x.shape[1] != len(self.coefs_):
+            print "%d variables in test data, but %d variables were in training data." % (x.shape[1], len(self.coefs_))
 
         if self.strategy == 'lambert':
-            return np.array([w_t(x_i, tau_i) for x_i, tau_i in zip(x.T, self.taus)]).T
+            return np.array([w_t(x_i, tau_i) for x_i, tau_i in zip(x.T, self.coefs_)]).T
         elif self.strategy == 'brute':
             return np.array([norm.ppf((rankdata(x_i) - 0.5) / len(x_i)) for x_i in x.T]).T
         elif self.strategy == 'boxcox':
-            return np.array([boxcox(x_i, lmbda=lmbda_i) for x_i, lmbda_i in zip(x.T, self.taus)]).T
+            return np.array([boxcox(x_i, lmbda=lmbda_i) for x_i, lmbda_i in zip(x.T, self.coefs_)]).T
         else:
             raise NotImplementedError
 
-    def fit_transform(self, x):
-        self.fit(x)
-        return self.transform(x)
-
-    def invert(self, y):
+    def inverse_transform(self, y):
+        """Recover original data from Gaussianized data."""
         if self.strategy == 'lambert':
-            return np.array([inverse(y_i, tau_i) for y_i, tau_i in zip(y.T, self.taus)]).T
+            return np.array([inverse(y_i, tau_i) for y_i, tau_i in zip(y.T, self.coefs_)]).T
         elif self.strategy == 'boxcox':
-            return np.array([(1. + lmbda_i * y_i)**(1./lmbda_i) for y_i, lmbda_i in zip(y.T, self.taus)]).T
+            return np.array([(1. + lmbda_i * y_i) ** (1./lmbda_i) for y_i, lmbda_i in zip(y.T, self.coefs_)]).T
         else:
             print 'Inversion not supported for this gaussianization transform.'
             raise NotImplementedError
 
     def qqplot(self, x, prefix='qq'):
         """Show qq plots compared to normal before and after the transform."""
-        import pylab
+        from matplotlib import pylab
         from scipy.stats import probplot
         y = self.transform(x)
 
@@ -141,6 +144,8 @@ def inverse(x, tau):
 
 def igmm(y, tol=1.22e-4, max_iter=100):
     # Infer mu, sigma, delta using IGMM in Alg.2, Appendix C
+    if np.std(y) < 1e-4:
+        return np.mean(y), np.std(y).clip(1e-4), 0
     delta0 = delta_init(y)
     tau1 = (np.median(y), np.std(y) * (1. - 2. * delta0) ** 0.75, delta0)
     for k in range(max_iter):
@@ -181,7 +186,7 @@ def delta_gmm(z):
 def delta_init(z):
     gamma = kurtosis(z, fisher=False, bias=False)
     with np.errstate(all='ignore'):
-        delta0 = np.clip(1. / 66 * (np.sqrt(66 * gamma - 162.) - 6.), 0.01, 0.25)
+        delta0 = np.clip(1. / 66 * (np.sqrt(66 * gamma - 162.) - 6.), 0.01, 0.48)
     if not np.isfinite(delta0):
         delta0 = 0.01
     return delta0
@@ -237,7 +242,7 @@ if __name__ == '__main__':
     #Load data from csv file
     filename = args[0]
     with open(filename, 'rU') as csvfile:
-        reader = csv.reader(csvfile, delimiter=options.delimiter)
+        reader = csv.reader(csvfile, delimiter=" ")  #options.delimiter)
         if options.nc:
             variable_names = None
         else:
@@ -251,7 +256,10 @@ if __name__ == '__main__':
                 sample_names.append(row[0])
             data.append(row[(1 - options.nr):])
 
+    print len(data), data[0]
     try:
+        for i in range(len(data)):
+            data[i] = map(float, data[i])
         X = np.array(data, dtype=float)  # Data matrix in numpy format
     except:
         print "Incorrect data format.\nCheck that you've correctly specified options " \
@@ -260,6 +268,30 @@ if __name__ == '__main__':
         traceback.print_exc(file=sys.stdout)
         sys.exit()
 
+    ks = []
+    for xi in X.T:
+        ks.append(kurtosis(xi))
+    print np.mean(np.array(ks) > 1)
+    from matplotlib import pylab
+    pylab.hist(ks, bins=30)
+    pylab.xlabel('excess kurtosis')
+    pylab.savefig('excess_kurtoses_all.png')
+    pylab.clf()
+    pylab.hist([k for k in ks if k < 2], bins=30)
+    pylab.xlabel('excess kurtosis')
+    pylab.savefig('excess_kurtoses_near_zero.png')
+    print np.argmax(ks)
+    pdict = {}
+    for k in np.argsort(- np.array(ks))[:50]:
+        pylab.clf()
+        p = np.argmax(X[:, k])
+        pdict[p] = pdict.get(p, 0) + 1
+        pylab.hist(X[:, k], bins=30)
+        pylab.xlabel(variable_names[k])
+        pylab.ylabel('Histogram of patients')
+        pylab.savefig('high_kurtosis/'+variable_names[k] + '.png')
+    print pdict  # 203, 140 appear three times.
+    sys.exit()
     out = Gaussianize(strategy=options.strategy)
     y = out.fit_transform(X)
     with open(options.output, 'w') as csvfile:

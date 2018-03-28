@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.stats as stats
 from scipy.stats import anderson, shapiro
-import pylab
+from matplotlib import pylab
 import sys
 sys.path.append('..')
 import gaussianize as g
@@ -60,7 +60,7 @@ def test_transform_lambert():
     out = g.Gaussianize()
     out.fit(x)
     y = out.transform(x)
-    x_prime = out.invert(y)
+    x_prime = out.inverse_transform(y)
     assert np.allclose(x_prime, x)
     out.qqplot(x, 'lambert')
 
@@ -70,6 +70,6 @@ def test_transform_boxcox():
     out = g.Gaussianize(strategy='boxcox')  # Only works on positive data
     out.fit(x)
     y = out.transform(x)
-    x_prime = out.invert(y)
+    x_prime = out.inverse_transform(y)
     assert np.allclose(x_prime, x)
     out.qqplot(x, 'boxcox')
