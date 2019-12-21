@@ -16,6 +16,7 @@ import sklearn
 from matplotlib import pylab as plt
 from scipy import stats
 import warnings
+import os
 
 np.seterr(all='warn')
 
@@ -126,17 +127,17 @@ class Gaussianize(sklearn.base.TransformerMixin):
         else:
             raise NotImplementedError("Inversion not supported for gaussianization transform '%s'" % self.strategy)
 
-    def qqplot(self, x: np.ndarray, prefix: Text = 'qq'):
+    def qqplot(self, x: np.ndarray, prefix: Text = 'qq', output_dir: Text = "/tmp/"):
         """Show qq plots compared to normal before and after the transform."""
         x = _update_x(x)
         y = self.transform(x)
         n_dim = y.shape[1]
         for i in range(n_dim):
             stats.probplot(x[:, i], dist="norm", plot=plt)
-            pylab.savefig(prefix + '_%d_before.png' % i)
+            plt.savefig(os.path.join(output_dir, prefix + '_%d_before.png' % i))
             plt.clf()
             stats.probplot(y[:, i], dist="norm", plot=plt)
-            pylab.savefig(prefix + '_%d_after.png' % i)
+            plt.savefig(os.path.join(output_dir, prefix + '_%d_after.png' % i))
             plt.clf()
 
 
