@@ -1,0 +1,5 @@
+matplotlib>=2.1.0
+scipy>=1.0.0
+numpy==1.15.0
+typing>=3.5.0
+scikit_learn>=0.19
